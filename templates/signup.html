@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}Sign Up - Flight Price Predictor{% endblock %}
+
+{% block additional_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/auth.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="auth-container">
+    <h1 class="auth-title">Create Account</h1>
+    
+    <form class="auth-form" method="POST" action="{{ url_for('signup') }}">
+        <div class="form-group">
+            <label for="name">Full Name</label>
+            <input type="text" id="name" name="name" required>
+        </div>
+
+        <div class="form-group">
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="confirm_password">Confirm Password</label>
+            <input type="password" id="confirm_password" name="confirm_password" required>
+        </div>
+        
+        <button type="submit" class="auth-btn">Sign Up</button>
+    </form>
+    
+    <div class="auth-links">
+        <a href="{{ url_for('login') }}">Already have an account? Login</a>
+    </div>
+    
+    <div class="auth-separator">
+        <span>or</span>
+    </div>
+    
+    <div class="social-login">
+        <button class="social-btn">
+            <img src="{{ url_for('static', filename='images/google.png') }}" alt="Google">
+            Sign up with Google
+        </button>
+    </div>
+</div>
+{% endblock %} 

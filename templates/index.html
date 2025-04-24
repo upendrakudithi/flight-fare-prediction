@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+
+{% block title %}Predict Flight Price - Flight Price Predictor{% endblock %}
+
+{% block additional_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/prediction.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="prediction-container">
+    <h1 class="prediction-title">Predict Flight Price</h1>
+
+    <form class="prediction-form" action="{{ url_for('predict_price') }}" method="post" id="predictionForm">
+        <div class="form-group">
+            <label for="airline">Airline</label>
+            <select name="airline" id="airline" class="form-control" required>
+                {% for airline in dropdown_values['airline'] %}
+                    <option value="{{ airline }}">{{ airline }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="flight">Flight</label>
+            <select name="flight" id="flight" class="form-control" required>
+                {% for flight in dropdown_values['flight'] %}
+                    <option value="{{ flight }}">{{ flight }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="source_city">Source City</label>
+            <select name="source_city" id="source_city" class="form-control" required>
+                {% for city in dropdown_values['source_city'] %}
+                    <option value="{{ city }}">{{ city }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="destination_city">Destination City</label>
+            <select name="destination_city" id="destination_city" class="form-control" required>
+                {% for city in dropdown_values['destination_city'] %}
+                    <option value="{{ city }}">{{ city }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="departure_time">Departure Time</label>
+            <select name="departure_time" id="departure_time" class="form-control" required>
+                {% for time in dropdown_values['departure_time'] %}
+                    <option value="{{ time }}">{{ time }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="arrival_time">Arrival Time</label>
+            <select name="arrival_time" id="arrival_time" class="form-control" required>
+                {% for time in dropdown_values['arrival_time'] %}
+                    <option value="{{ time }}">{{ time }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="stops">Stops</label>
+            <select name="stops" id="stops" class="form-control" required>
+                {% for stop in dropdown_values['stops'] %}
+                    <option value="{{ stop }}">{{ stop }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="class">Class</label>
+            <select name="class" id="class" class="form-control" required>
+                {% for travel_class in dropdown_values['class'] %}
+                    <option value="{{ travel_class }}">{{ travel_class }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="duration">Duration (in hours)</label>
+            <input type="number" name="duration" id="duration" class="form-control" step="0.1" min="0" required>
+        </div>
+
+        <div class="form-group">
+            <label for="departure_date">Departure Date</label>
+            <input type="date" id="departure_date" class="form-control" required min="{{ today }}">
+            <input type="hidden" name="days_left" id="days_left">
+            <small class="days-left-text">Days left: <span id="days_left_display">-</span></small>
+        </div>
+
+        <div class="submit-container">
+            <button type="submit" class="predict-btn">Predict Price</button>
+        </div>
+    </form>
+
+    {% if prediction %}
+    <div class="prediction-result">
+        <h2>Prediction Result</h2>
+        <div class="price-value">₹{{ prediction.split(':')[1].strip() }}</div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const departureDateInput = document.getElementById('departure_date');
+    const daysLeftInput = document.getElementById('days_left');
+    const daysLeftDisplay = document.getElementById('days_left_display');
+    const predictionForm = document.getElementById('predictionForm');
+
+    // Set minimum date to today
+    const today = new Date().toISOString().split('T')[0];
+    departureDateInput.min = today;
+
+    function calculateDaysLeft() {
+        const departureDate = new Date(departureDateInput.value);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        const diffTime = departureDate - today;
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        
+        daysLeftInput.value = diffDays;
+        daysLeftDisplay.textContent = diffDays;
+    }
+
+    departureDateInput.addEventListener('change', calculateDaysLeft);
+
+    predictionForm.addEventListener('submit', function(e) {
+        if (!departureDateInput.value) {
+            e.preventDefault();
+            alert('Please select a departure date');
+            return;
+        }
+        calculateDaysLeft();
+    });
+});
+</script>
+
+<style>
+.days-left-text {
+    display: block;
+    margin-top: 0.5rem;
+    color: #666;
+    font-size: 0.9rem;
+}
+
+#days_left_display {
+    font-weight: 500;
+    color: #3498db;
+}
+</style>
+{% endblock %}
