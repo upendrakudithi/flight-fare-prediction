@@ -1,7 +1,7 @@
-flask==2.0.1
-pandas==1.3.3
-numpy==1.21.2
-scikit-learn==0.24.2
-openpyxl==3.0.9
-werkzeug==2.0.1
-python-dotenv==0.19.0 
+flask
+pandas
+numpy
+scikit-learn
+openpyxl
+werkzeug
+python-dotenv

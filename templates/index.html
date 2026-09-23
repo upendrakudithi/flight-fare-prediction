@@ -85,7 +85,7 @@
 
         <div class="form-group">
             <label for="duration">Duration (in hours)</label>
-            <input type="number" name="duration" id="duration" class="form-control" step="0.1" min="0" required>
+            <input type="number" name="duration" id="duration" class="form-control" step="0.1" min="0.1" max="36" required>
         </div>
 
         <div class="form-group">
@@ -114,10 +114,204 @@ document.addEventListener('DOMContentLoaded', function() {
     const daysLeftInput = document.getElementById('days_left');
     const daysLeftDisplay = document.getElementById('days_left_display');
     const predictionForm = document.getElementById('predictionForm');
+    const airlineSelect = document.getElementById('airline');
+    const flightSelect = document.getElementById('flight');
+    const sourceCitySelect = document.getElementById('source_city');
+    const destinationCitySelect = document.getElementById('destination_city');
+    const departureTimeSelect = document.getElementById('departure_time');
+    const arrivalTimeSelect = document.getElementById('arrival_time');
+    const durationInput = document.getElementById('duration');
 
     // Set minimum date to today
     const today = new Date().toISOString().split('T')[0];
     departureDateInput.min = today;
+
+    // --- Persist form data in localStorage ---
+    const FORM_STORAGE_KEY = 'flight_price_form_data';
+
+    // Restore form data from localStorage
+    function restoreFormData() {
+        const saved = localStorage.getItem(FORM_STORAGE_KEY);
+        if (!saved) return;
+        try {
+            const data = JSON.parse(saved);
+            for (const [key, value] of Object.entries(data)) {
+                const el = document.getElementsByName(key)[0] || document.getElementById(key);
+                if (el) {
+                    el.value = value;
+                }
+            }
+            // Update days left display if date is restored
+            if (data['departure_date']) {
+                calculateDaysLeft();
+            }
+        } catch (e) {}
+    }
+
+    // Save form data to localStorage
+    function saveFormData() {
+        const data = {};
+        const elements = predictionForm.elements;
+        for (let i = 0; i < elements.length; i++) {
+            const el = elements[i];
+            if (el.name && (el.type !== 'submit' && el.type !== 'button')) {
+                data[el.name] = el.value;
+            }
+        }
+        // Save departure_date separately (not named in form)
+        if (departureDateInput.value) {
+            data['departure_date'] = departureDateInput.value;
+        }
+        localStorage.setItem(FORM_STORAGE_KEY, JSON.stringify(data));
+    }
+
+    // Listen for changes on all form fields
+    Array.from(predictionForm.elements).forEach(function(el) {
+        if (el.name && (el.type !== 'submit' && el.type !== 'button')) {
+            el.addEventListener('input', saveFormData);
+            el.addEventListener('change', saveFormData);
+        }
+    });
+    departureDateInput.addEventListener('input', saveFormData);
+    departureDateInput.addEventListener('change', saveFormData);
+
+    // Restore on load
+    restoreFormData();
+    updateCityDropdownsFromAirline();
+    // --- End persist form data ---
+
+    // --- Dynamic flight code update based on airline ---
+    airlineSelect.addEventListener('change', function() {
+        const selectedAirline = airlineSelect.value;
+        // Fetch matching flights from backend
+        fetch(`/get_flights_for_airline?airline=${encodeURIComponent(selectedAirline)}`)
+            .then(response => response.json())
+            .then(data => {
+                // Clear current options
+                flightSelect.innerHTML = '';
+                // Add new options
+                if (data.flights && data.flights.length > 0) {
+                    data.flights.forEach(function(flight) {
+                        const option = document.createElement('option');
+                        option.value = flight;
+                        option.textContent = flight;
+                        flightSelect.appendChild(option);
+                    });
+                } else {
+                    const option = document.createElement('option');
+                    option.value = '';
+                    option.textContent = 'No flights available';
+                    flightSelect.appendChild(option);
+                }
+                saveFormData(); // Save after updating flights
+            });
+    });
+    // On page load, if airline is set, trigger change to update flights
+    if (airlineSelect.value) {
+        airlineSelect.dispatchEvent(new Event('change'));
+    }
+    // --- End dynamic flight code update ---
+
+    // --- Dynamic city update based on airline ---
+    function updateCityDropdownsFromAirline() {
+        const selectedAirline = airlineSelect.value;
+        fetch(`/get_cities_for_airline?airline=${encodeURIComponent(selectedAirline)}`)
+            .then(response => response.json())
+            .then(data => {
+                const allowedCities = data.cities || [];
+                // Save current selections
+                const prevSource = sourceCitySelect.value;
+                const prevDest = destinationCitySelect.value;
+                // Update source city dropdown
+                sourceCitySelect.innerHTML = '';
+                allowedCities.forEach(function(city) {
+                    const option = document.createElement('option');
+                    option.value = city;
+                    option.textContent = city;
+                    sourceCitySelect.appendChild(option);
+                });
+                // Update destination city dropdown
+                destinationCitySelect.innerHTML = '';
+                allowedCities.forEach(function(city) {
+                    const option = document.createElement('option');
+                    option.value = city;
+                    option.textContent = city;
+                    destinationCitySelect.appendChild(option);
+                });
+                // Try to restore previous selections if still valid
+                if (allowedCities.includes(prevSource)) sourceCitySelect.value = prevSource;
+                if (allowedCities.includes(prevDest)) destinationCitySelect.value = prevDest;
+                // Update city disables
+                updateCityDropdowns();
+                saveFormData();
+            });
+    }
+    airlineSelect.addEventListener('change', function() {
+        // Update flights as before
+        const selectedAirline = airlineSelect.value;
+        fetch(`/get_flights_for_airline?airline=${encodeURIComponent(selectedAirline)}`)
+            .then(response => response.json())
+            .then(data => {
+                flightSelect.innerHTML = '';
+                if (data.flights && data.flights.length > 0) {
+                    data.flights.forEach(function(flight) {
+                        const option = document.createElement('option');
+                        option.value = flight;
+                        option.textContent = flight;
+                        flightSelect.appendChild(option);
+                    });
+                } else {
+                    const option = document.createElement('option');
+                    option.value = '';
+                    option.textContent = 'No flights available';
+                    flightSelect.appendChild(option);
+                }
+                saveFormData();
+            });
+        // Update cities
+        updateCityDropdownsFromAirline();
+    });
+    // On page load, if airline is set, trigger change to update flights and cities
+    if (airlineSelect.value) {
+        airlineSelect.dispatchEvent(new Event('change'));
+    } else {
+        updateCityDropdownsFromAirline();
+    }
+    // --- End dynamic city update ---
+
+    // --- Prevent same source and destination city selection ---
+    function updateCityDropdowns() {
+        const sourceVal = sourceCitySelect.value;
+        const destVal = destinationCitySelect.value;
+
+        // Enable all options first
+        Array.from(destinationCitySelect.options).forEach(opt => { opt.disabled = false; });
+        Array.from(sourceCitySelect.options).forEach(opt => { opt.disabled = false; });
+
+        // Disable selected source in destination
+        if (sourceVal) {
+            Array.from(destinationCitySelect.options).forEach(opt => {
+                if (opt.value === sourceVal) opt.disabled = true;
+            });
+        }
+        // Disable selected destination in source
+        if (destVal) {
+            Array.from(sourceCitySelect.options).forEach(opt => {
+                if (opt.value === destVal) opt.disabled = true;
+            });
+        }
+
+        // If both are the same, show alert and reset destination
+        if (sourceVal && destVal && sourceVal === destVal) {
+            alert('Source and destination cities cannot be the same.');
+            destinationCitySelect.value = '';
+        }
+    }
+    sourceCitySelect.addEventListener('change', updateCityDropdowns);
+    destinationCitySelect.addEventListener('change', updateCityDropdowns);
+    // On page load, update dropdowns
+    updateCityDropdowns();
+    // --- End prevent same source and destination city selection ---
 
     function calculateDaysLeft() {
         const departureDate = new Date(departureDateInput.value);
@@ -140,6 +334,56 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         calculateDaysLeft();
+        saveFormData(); // Save before submit
+        // --- Validate time-of-day and duration logic ---
+        const timeCategories = [
+            'early morning',
+            'morning',
+            'afternoon',
+            'evening',
+            'night',
+            'late night'
+        ];
+        const dep = departureTimeSelect.value;
+        const arr = arrivalTimeSelect.value;
+        const dur = parseFloat(durationInput.value);
+        const depIdx = timeCategories.indexOf(dep.toLowerCase());
+        const arrIdx = timeCategories.indexOf(arr.toLowerCase());
+        if (depIdx === -1 || arrIdx === -1 || isNaN(dur)) {
+            // If any value is missing, skip this validation
+            return;
+        }
+        let span = arrIdx - depIdx;
+        if (span < 0) span += timeCategories.length; // overnight
+        // Validation rules
+        let valid = true;
+        if (dur <= 3) {
+            if (span > 1) valid = false;
+        } else if (dur <= 8) {
+            if (span > 3) valid = false;
+        } else {
+            if (span < 4) valid = false;
+        }
+        // Overnight: arrival before departure
+        if (arrIdx < depIdx && dur <= 6) {
+            valid = false;
+        }
+        if (!valid) {
+            e.preventDefault();
+            alert('The combination of Departure Time, Arrival Time, and Duration does not make logical sense. Please check your inputs.');
+            return;
+        }
+        // --- End validation ---
+        // --- Duration range validation ---
+        if (durationInput.value) {
+            const durVal = parseFloat(durationInput.value);
+            if (isNaN(durVal) || durVal < 0.1 || durVal > 36) {
+                e.preventDefault();
+                alert('Duration must be between 0.1 and 36 hours (1.5 days).');
+                return;
+            }
+        }
+        // --- End duration range validation ---
     });
 });
 </script>

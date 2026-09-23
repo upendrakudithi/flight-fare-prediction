@@ -1,19 +1,22 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session
-import pickle
+import numpy as np 
 import pandas as pd
+import pickle
 from werkzeug.security import generate_password_hash, check_password_hash
 import os
 from datetime import datetime, date
+from flask import jsonify
 
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-here'  # Change this to a secure secret key
 
 # Load the trained model
-with open('flight_price_predictor_model.pkl', 'rb') as f:
-    rf = pickle.load(f)
+with open("model.pkl", "rb") as f:
+    model = pickle.load(f)
 
 # Load the DataFrame for dropdown values
-df = pd.read_csv('Clean_Dataset.csv')
+with open('Clean_Dataset.csv', 'r', encoding='utf-8', errors='replace') as f:
+    df = pd.read_csv(f)
 
 # Create users.xlsx if it doesn't exist
 if not os.path.exists('users.xlsx'):
@@ -29,6 +32,35 @@ dropdown_values = {
     'destination_city': df['destination_city'].unique().tolist(),
     'class': df['class'].unique().tolist()
 }
+
+# API endpoint to get flights for a given airline
+@app.route('/get_flights_for_airline')
+def get_flights_for_airline():
+    airline = request.args.get('airline')
+    if not airline:
+        return jsonify({'flights': []})
+    flights = df[df['airline'] == airline]['flight'].unique().tolist()
+    return jsonify({'flights': flights})
+
+@app.route('/get_cities_for_airline')
+def get_cities_for_airline():
+    airline = request.args.get('airline')
+    # Define city groups
+    national_cities = ['Delhi', 'Mumbai', 'Bangalore', 'Kolkata', 'Hyderabad', 'Chennai']
+    international_cities = ['New York', 'Detroit', 'London', 'Manchester']
+    all_cities = national_cities + international_cities
+    
+    if airline == 'American':
+        allowed = ['New York', 'Detroit', 'Delhi', 'Mumbai', 'Hyderabad']
+    elif airline == 'British Airways':
+        allowed = ['London', 'Manchester', 'Delhi', 'Mumbai', 'Hyderabad']
+    elif airline in ['SpiceJet', 'Vistara']:
+        allowed = national_cities
+    elif airline in ['Air India', 'Indigo']:
+        allowed = all_cities
+    else:
+        allowed = all_cities
+    return jsonify({'cities': allowed})
 
 @app.route('/')
 def home():
@@ -66,18 +98,18 @@ def predict_price():
     days_left = int(request.form['days_left'])
 
     # Prepare input data for prediction
-    input_data = pd.DataFrame({
-        'airline': [airline],
-        'flight': [flight],
-        'source_city': [source_city],
-        'departure_time': [departure_time],
-        'stops': [stops],
-        'arrival_time': [arrival_time],
-        'destination_city': [destination_city],
-        'class': [travel_class],
-        'duration': [duration],
-        'days_left': [days_left]
-    })
+    input_data = pd.DataFrame([{
+        'airline': airline,
+        'flight': flight,
+        'source_city': source_city,
+        'departure_time': departure_time,
+        'stops': stops,
+        'arrival_time': arrival_time,
+        'destination_city': destination_city,
+        'class': travel_class,
+        'duration': duration,
+        'days_left': days_left
+    }])
 
     # Apply one-hot encoding
     input_data = pd.get_dummies(input_data, drop_first=True)
@@ -87,7 +119,7 @@ def predict_price():
     prediction = rf.predict(input_data)[0]
 
     return render_template('index.html', 
-                         prediction=f"Predicted Price: {prediction:.2f}",
+                         prediction=f"predicted_price: {prediction:.2f}",
                          dropdown_values=dropdown_values,
                          today=date.today().isoformat())
 
@@ -152,4 +184,4 @@ def logout():
     return redirect(url_for('home'))
 
 if __name__ == '__main__':
-    app.run(debug=True,port=5001)
+    app.run(debug=True,host='0.0.0.0', port=5000)
